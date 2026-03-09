@@ -23,7 +23,13 @@ import {
   ShieldCheck,
   Grid,
   ExternalLink,
-  ShieldAlert
+  ShieldAlert,
+  FileUp,
+  MessageSquare,
+  Calendar,
+  Eye,
+  MoreVertical,
+  UploadCloud
 } from 'lucide-react';
 import { 
   LineChart, 
@@ -39,12 +45,15 @@ import {
   Bar,
   Cell,
   Legend,
-  ComposedChart
+  ComposedChart,
+  PieChart,
+  Pie
 } from 'recharts';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { MOCK_SKUS, MOCK_ALERTS, generateForecastData } from './mockData';
 import { SKU, Alert, ForecastDataPoint } from './types';
+import { VENDOR_ORDERS, VENDOR_METRICS, VendorOrder } from './vendorMockData';
 
 // Utility for tailwind classes
 function cn(...inputs: ClassValue[]) {
@@ -107,6 +116,351 @@ const StatCard = ({ label, value, trend, trendType }: { label: string, value: st
     </div>
   </div>
 );
+
+// --- Vendor Portal Components ---
+
+const VendorPortal = () => {
+  const [view, setView] = useState<'dashboard' | 'orders' | 'detail'>('dashboard');
+  const [selectedOrder, setSelectedOrder] = useState<VendorOrder | null>(null);
+
+  const handleOrderClick = (order: VendorOrder) => {
+    setSelectedOrder(order);
+    setView('detail');
+  };
+
+  return (
+    <div className="space-y-8">
+      {/* Vendor Navigation Tabs */}
+      <div className="flex border-b border-zinc-200">
+        <button 
+          onClick={() => setView('dashboard')}
+          className={cn(
+            "px-6 py-3 text-sm font-medium border-b-2 transition-colors",
+            view === 'dashboard' ? "border-brand text-brand" : "border-transparent text-zinc-500 hover:text-zinc-700"
+          )}
+        >
+          Dashboard
+        </button>
+        <button 
+          onClick={() => setView('orders')}
+          className={cn(
+            "px-6 py-3 text-sm font-medium border-b-2 transition-colors",
+            view === 'orders' || view === 'detail' ? "border-brand text-brand" : "border-transparent text-zinc-500 hover:text-zinc-700"
+          )}
+        >
+          Order Management
+        </button>
+      </div>
+
+      {view === 'dashboard' && (
+        <div className="space-y-8">
+          {/* Metrics */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {VENDOR_METRICS.map((metric, i) => (
+              <div key={i} className="p-6 bg-white border border-zinc-200 rounded-xl shadow-sm">
+                <div className="flex items-center justify-between mb-4">
+                  <div className={cn("p-2 rounded-lg", metric.bg)}>
+                    <metric.icon className={cn("w-5 h-5", metric.color)} />
+                  </div>
+                  <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full">+2 this week</span>
+                </div>
+                <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider">{metric.label}</p>
+                <h4 className="text-2xl font-bold text-zinc-900 mt-1">{metric.value}</h4>
+              </div>
+            ))}
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            {/* Action Center */}
+            <div className="lg:col-span-2">
+              <Card title="Urgent Action Center" subtitle="Orders requiring immediate vendor response">
+                <div className="space-y-4">
+                  {VENDOR_ORDERS.filter(o => o.status === 'Late' || o.status === 'Pre-press').map(order => (
+                    <div key={order.id} className="flex items-center justify-between p-4 bg-zinc-50 rounded-xl border border-zinc-100 group hover:border-brand/30 transition-all cursor-pointer" onClick={() => handleOrderClick(order)}>
+                      <div className="flex items-center space-x-4">
+                        <div className={cn(
+                          "w-10 h-10 rounded-full flex items-center justify-center",
+                          order.status === 'Late' ? "bg-rose-100 text-rose-600" : "bg-amber-100 text-amber-600"
+                        )}>
+                          <AlertTriangle className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <h5 className="text-sm font-bold text-zinc-900">{order.poNumber} — {order.productName}</h5>
+                          <p className="text-xs text-zinc-500">Deadline: {order.deadline} • {order.status === 'Late' ? 'Overdue' : 'Action Required'}</p>
+                        </div>
+                      </div>
+                      <ChevronRight className="w-4 h-4 text-zinc-300 group-hover:text-brand" />
+                    </div>
+                  ))}
+                </div>
+              </Card>
+            </div>
+
+            {/* Status Distribution */}
+            <div>
+              <Card title="Production Mix" subtitle="Current order status distribution">
+                <div className="h-64">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={[
+                          { name: 'Pre-press', value: 25, color: '#F59E0B' },
+                          { name: 'Production', value: 45, color: '#3563AE' },
+                          { name: 'QC', value: 15, color: '#8B5CF6' },
+                          { name: 'Shipped', value: 15, color: '#10B981' },
+                        ]}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={60}
+                        outerRadius={80}
+                        paddingAngle={5}
+                        dataKey="value"
+                      >
+                        {[0, 1, 2, 3].map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={['#F59E0B', '#3563AE', '#8B5CF6', '#10B981'][index]} />
+                        ))}
+                      </Pie>
+                      <Tooltip />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+                <div className="grid grid-cols-2 gap-2 mt-4">
+                  {['Pre-press', 'Production', 'QC', 'Shipped'].map((label, i) => (
+                    <div key={i} className="flex items-center space-x-2">
+                      <div className="w-2 h-2 rounded-full" style={{ backgroundColor: ['#F59E0B', '#3563AE', '#8B5CF6', '#10B981'][i] }} />
+                      <span className="text-[10px] font-medium text-zinc-500">{label}</span>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {view === 'orders' && (
+        <Card title="Order Management" subtitle="Track and manage all assigned production orders">
+          <div className="overflow-x-auto -mx-6">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-zinc-50 border-y border-zinc-100">
+                  <th className="px-6 py-4 text-xs font-bold text-zinc-500 uppercase tracking-wider">PO Number</th>
+                  <th className="px-6 py-4 text-xs font-bold text-zinc-500 uppercase tracking-wider">Product</th>
+                  <th className="px-6 py-4 text-xs font-bold text-zinc-500 uppercase tracking-wider">Quantity</th>
+                  <th className="px-6 py-4 text-xs font-bold text-zinc-500 uppercase tracking-wider">Deadline</th>
+                  <th className="px-6 py-4 text-xs font-bold text-zinc-500 uppercase tracking-wider">Status</th>
+                  <th className="px-6 py-4 text-xs font-bold text-zinc-500 uppercase tracking-wider text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-zinc-100">
+                {VENDOR_ORDERS.map(order => (
+                  <tr key={order.id} className="hover:bg-zinc-50 transition-colors group">
+                    <td className="px-6 py-4">
+                      <span className="text-sm font-bold text-zinc-900">{order.poNumber}</span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className="text-sm text-zinc-600">{order.productName}</span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className="text-sm text-zinc-600">{order.quantity.toLocaleString()}</span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className={cn(
+                        "text-sm font-medium",
+                        order.status === 'Late' ? "text-rose-600" : "text-zinc-600"
+                      )}>{order.deadline}</span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className={cn(
+                        "px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider",
+                        order.status === 'Shipped' ? "bg-emerald-50 text-emerald-700" :
+                        order.status === 'Late' ? "bg-rose-50 text-rose-700" :
+                        order.status === 'Production' ? "bg-blue-50 text-blue-700" :
+                        "bg-amber-50 text-amber-700"
+                      )}>
+                        {order.status}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <button 
+                        onClick={() => handleOrderClick(order)}
+                        className="p-2 text-zinc-400 hover:text-brand hover:bg-brand/5 rounded-lg transition-all"
+                      >
+                        <Eye className="w-4 h-4" />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
+
+      {view === 'detail' && selectedOrder && (
+        <div className="space-y-8">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-4">
+              <button 
+                onClick={() => setView('orders')}
+                className="p-2 hover:bg-zinc-100 rounded-lg text-zinc-500 transition-colors"
+              >
+                <ChevronRight className="w-5 h-5 rotate-180" />
+              </button>
+              <div>
+                <h2 className="text-2xl font-bold text-zinc-900">{selectedOrder.poNumber}</h2>
+                <p className="text-sm text-zinc-500">{selectedOrder.productName}</p>
+              </div>
+            </div>
+            <div className="flex space-x-3">
+              <button className="flex items-center px-4 py-2 text-sm font-medium text-zinc-600 bg-white border border-zinc-200 rounded-lg hover:bg-zinc-50">
+                <MessageSquare className="w-4 h-4 mr-2" />
+                Contact Safco
+              </button>
+              <button className="flex items-center px-4 py-2 text-sm font-medium text-white bg-brand rounded-lg hover:bg-brand/90">
+                <Edit3 className="w-4 h-4 mr-2" />
+                Update Status
+              </button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className="lg:col-span-2 space-y-8">
+              {/* Progress Stepper */}
+              <Card>
+                <div className="flex items-center justify-between px-4">
+                  {['Received', 'Pre-press', 'Production', 'QC', 'Shipped'].map((step, i) => {
+                    const steps = ['Received', 'Pre-press', 'Production', 'QC', 'Shipped'];
+                    const currentIndex = steps.indexOf(selectedOrder.status === 'Late' ? 'Production' : selectedOrder.status);
+                    const isCompleted = i <= currentIndex;
+                    const isCurrent = i === currentIndex;
+                    
+                    return (
+                      <div key={step} className="flex flex-col items-center relative flex-1">
+                        {i < 4 && (
+                          <div className={cn(
+                            "absolute left-1/2 top-4 w-full h-0.5",
+                            i < currentIndex ? "bg-brand" : "bg-zinc-100"
+                          )} />
+                        )}
+                        <div className={cn(
+                          "w-8 h-8 rounded-full flex items-center justify-center relative z-10 border-2",
+                          isCompleted ? "bg-brand border-brand text-white" : "bg-white border-zinc-200 text-zinc-400",
+                          isCurrent && "ring-4 ring-brand/10"
+                        )}>
+                          {isCompleted && i < currentIndex ? <CheckCircle2 className="w-4 h-4" /> : <span className="text-xs font-bold">{i + 1}</span>}
+                        </div>
+                        <span className={cn(
+                          "mt-2 text-[10px] font-bold uppercase tracking-wider",
+                          isCompleted ? "text-brand" : "text-zinc-400"
+                        )}>{step}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </Card>
+
+              {/* Specs */}
+              <Card title="Product Specifications">
+                <div className="grid grid-cols-2 gap-8">
+                  <div className="space-y-4">
+                    <div>
+                      <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Material</p>
+                      <p className="text-sm font-medium text-zinc-900 mt-1">{selectedOrder.specs.material}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Ink Configuration</p>
+                      <p className="text-sm font-medium text-zinc-900 mt-1">{selectedOrder.specs.ink}</p>
+                    </div>
+                  </div>
+                  <div className="space-y-4">
+                    <div>
+                      <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Finish</p>
+                      <p className="text-sm font-medium text-zinc-900 mt-1">{selectedOrder.specs.finish}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Dimensions</p>
+                      <p className="text-sm font-medium text-zinc-900 mt-1">{selectedOrder.specs.dimensions}</p>
+                    </div>
+                  </div>
+                </div>
+              </Card>
+
+              {/* Files */}
+              <Card title="Production Files" subtitle="Upload and manage art, proofs, and labels">
+                <div className="space-y-4">
+                  <div className="border-2 border-dashed border-zinc-200 rounded-xl p-8 flex flex-col items-center justify-center group hover:border-brand/50 hover:bg-brand/5 transition-all cursor-pointer">
+                    <UploadCloud className="w-10 h-10 text-zinc-300 group-hover:text-brand mb-4" />
+                    <p className="text-sm font-medium text-zinc-900">Drag and drop production files here</p>
+                    <p className="text-xs text-zinc-500 mt-1">PDF, AI, or High-Res JPG (Max 50MB)</p>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    {[
+                      { name: 'Final_Art_v2.ai', size: '12.4 MB', type: 'Art', date: 'Mar 5' },
+                      { name: 'Packing_Slip_Draft.pdf', size: '1.2 MB', type: 'Label', date: 'Mar 8' },
+                    ].map((file, i) => (
+                      <div key={i} className="flex items-center justify-between p-3 bg-zinc-50 rounded-lg border border-zinc-100">
+                        <div className="flex items-center space-x-3">
+                          <FileUp className="w-4 h-4 text-zinc-400" />
+                          <div>
+                            <p className="text-sm font-medium text-zinc-900">{file.name}</p>
+                            <p className="text-[10px] text-zinc-500">{file.size} • Uploaded {file.date}</p>
+                          </div>
+                        </div>
+                        <span className="text-[10px] font-bold text-zinc-400 uppercase px-2 py-1 bg-white rounded border border-zinc-100">{file.type}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </Card>
+            </div>
+
+            <div className="space-y-8">
+              {/* Timeline */}
+              <Card title="Order Activity">
+                <div className="space-y-6 relative before:absolute before:left-2.5 before:top-2 before:bottom-2 before:w-px before:bg-zinc-100">
+                  {[
+                    { action: 'Status updated to Production', time: 'Yesterday, 10:30 AM', user: 'Vendor System' },
+                    { action: 'Proof approved by Safco', time: 'Mar 5, 02:15 PM', user: 'Sarah Miller' },
+                    { action: 'Art file uploaded', time: 'Mar 5, 09:00 AM', user: 'Vendor System' },
+                    { action: 'Order assigned to Vendor', time: 'Mar 1, 08:00 AM', user: 'System' },
+                  ].map((item, i) => (
+                    <div key={i} className="relative pl-8">
+                      <div className="absolute left-0 top-1 w-5 h-5 rounded-full border-2 border-white bg-zinc-200" />
+                      <p className="text-xs font-bold text-zinc-900">{item.action}</p>
+                      <p className="text-[10px] text-zinc-500 mt-0.5">{item.time} • {item.user}</p>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+
+              {/* Deadlines */}
+              <Card title="Key Dates">
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <Calendar className="w-4 h-4 text-zinc-400" />
+                      <span className="text-xs text-zinc-500">Start Date</span>
+                    </div>
+                    <span className="text-xs font-bold">{selectedOrder.startDate}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <Clock className="w-4 h-4 text-rose-400" />
+                      <span className="text-xs text-zinc-500">Deadline</span>
+                    </div>
+                    <span className="text-xs font-bold text-rose-600">{selectedOrder.deadline}</span>
+                  </div>
+                </div>
+              </Card>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
 
 // --- SSO & RBAC Components ---
 
@@ -940,6 +1294,13 @@ export default function App() {
         case 'history': return <HistoryScreen />;
         default: return <DashboardHome onSelectSKU={handleSelectSKU} />;
       }
+    }
+
+    if (currentModule === 'vendor') {
+      if (userRole !== 'Vendor' && userRole !== 'Admin') {
+        return <AccessDenied onBack={() => setCurrentModule(null)} />;
+      }
+      return <VendorPortal />;
     }
     
     if (currentModule) {
