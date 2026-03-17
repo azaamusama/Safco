@@ -119,14 +119,18 @@ const StatCard = ({ label, value, trend, trendType }: { label: string, value: st
 
 // --- Vendor Portal Components ---
 
-const VendorPortal = () => {
-  const [view, setView] = useState<'dashboard' | 'orders' | 'detail'>('dashboard');
+const VendorPortal = ({ userRole }: { userRole: string }) => {
+  const [view, setView] = useState<'dashboard' | 'orders' | 'detail' | 'bulk' | 'logs'>('dashboard');
   const [selectedOrder, setSelectedOrder] = useState<VendorOrder | null>(null);
 
   const handleOrderClick = (order: VendorOrder) => {
     setSelectedOrder(order);
     setView('detail');
   };
+
+  const isAdmin = userRole === 'Admin';
+  const isCS = userRole === 'Customer Support';
+  const isVendor = userRole === 'Vendor';
 
   return (
     <div className="space-y-8">
@@ -150,6 +154,28 @@ const VendorPortal = () => {
         >
           Order Management
         </button>
+        {isVendor && (
+          <button 
+            onClick={() => setView('bulk')}
+            className={cn(
+              "px-6 py-3 text-sm font-medium border-b-2 transition-colors",
+              view === 'bulk' ? "border-brand text-brand" : "border-transparent text-zinc-500 hover:text-zinc-700"
+            )}
+          >
+            Bulk Upload
+          </button>
+        )}
+        {isAdmin && (
+          <button 
+            onClick={() => setView('logs')}
+            className={cn(
+              "px-6 py-3 text-sm font-medium border-b-2 transition-colors",
+              view === 'logs' ? "border-brand text-brand" : "border-transparent text-zinc-500 hover:text-zinc-700"
+            )}
+          >
+            Activity Logs
+          </button>
+        )}
       </div>
 
       {view === 'dashboard' && (
@@ -162,7 +188,9 @@ const VendorPortal = () => {
                   <div className={cn("p-2 rounded-lg", metric.bg)}>
                     <metric.icon className={cn("w-5 h-5", metric.color)} />
                   </div>
-                  <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full">+2 this week</span>
+                  {isCS && metric.label === 'Late Orders' && (
+                    <span className="text-xs font-bold text-rose-600 bg-rose-50 px-2 py-1 rounded-full">High Priority</span>
+                  )}
                 </div>
                 <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider">{metric.label}</p>
                 <h4 className="text-2xl font-bold text-zinc-900 mt-1">{metric.value}</h4>
@@ -173,7 +201,10 @@ const VendorPortal = () => {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             {/* Action Center */}
             <div className="lg:col-span-2">
-              <Card title="Urgent Action Center" subtitle="Orders requiring immediate vendor response">
+              <Card 
+                title={isCS ? "SLA Monitoring Queue" : "Urgent Action Center"} 
+                subtitle={isCS ? "Orders approaching ship-date deadlines" : "Orders requiring immediate vendor response"}
+              >
                 <div className="space-y-4">
                   {VENDOR_ORDERS.filter(o => o.status === 'Late' || o.status === 'Pre-press').map(order => (
                     <div key={order.id} className="flex items-center justify-between p-4 bg-zinc-50 rounded-xl border border-zinc-100 group hover:border-brand/30 transition-all cursor-pointer" onClick={() => handleOrderClick(order)}>
@@ -186,10 +217,16 @@ const VendorPortal = () => {
                         </div>
                         <div>
                           <h5 className="text-sm font-bold text-zinc-900">{order.poNumber} — {order.productName}</h5>
-                          <p className="text-xs text-zinc-500">Deadline: {order.deadline} • {order.status === 'Late' ? 'Overdue' : 'Action Required'}</p>
+                          <p className="text-xs text-zinc-500">
+                            {isAdmin && <span className="font-bold text-brand mr-2">Vendor: ABC Printing</span>}
+                            Deadline: {order.deadline} • {order.status === 'Late' ? 'Overdue' : 'Action Required'}
+                          </p>
                         </div>
                       </div>
-                      <ChevronRight className="w-4 h-4 text-zinc-300 group-hover:text-brand" />
+                      <div className="flex items-center space-x-3">
+                        {isCS && <span className="text-[10px] font-bold text-rose-600 uppercase tracking-widest">Escalate</span>}
+                        <ChevronRight className="w-4 h-4 text-zinc-300 group-hover:text-brand" />
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -240,11 +277,37 @@ const VendorPortal = () => {
 
       {view === 'orders' && (
         <Card title="Order Management" subtitle="Track and manage all assigned production orders">
+          <div className="mb-6 flex flex-wrap gap-4">
+            <div className="relative flex-1 min-w-[200px]">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
+              <input type="text" placeholder="Search PO#, SKU, or Product..." className="w-full pl-10 pr-4 py-2 bg-zinc-50 border border-zinc-200 rounded-lg text-sm" />
+            </div>
+            {(isAdmin || isCS) && (
+              <select className="px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-lg text-sm">
+                <option>All Vendors</option>
+                <option>ABC Printing</option>
+                <option>Global Dental Supplies</option>
+              </select>
+            )}
+            <select className="px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-lg text-sm">
+              <option>All Statuses</option>
+              <option>Pre-press</option>
+              <option>Production</option>
+              <option>Shipped</option>
+              <option>Late</option>
+            </select>
+            <button className="flex items-center px-4 py-2 text-sm font-medium text-zinc-600 bg-white border border-zinc-200 rounded-lg hover:bg-zinc-50">
+              <Filter className="w-4 h-4 mr-2" />
+              More Filters
+            </button>
+          </div>
+
           <div className="overflow-x-auto -mx-6">
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-zinc-50 border-y border-zinc-100">
                   <th className="px-6 py-4 text-xs font-bold text-zinc-500 uppercase tracking-wider">PO Number</th>
+                  {(isAdmin || isCS) && <th className="px-6 py-4 text-xs font-bold text-zinc-500 uppercase tracking-wider">Vendor</th>}
                   <th className="px-6 py-4 text-xs font-bold text-zinc-500 uppercase tracking-wider">Product</th>
                   <th className="px-6 py-4 text-xs font-bold text-zinc-500 uppercase tracking-wider">Quantity</th>
                   <th className="px-6 py-4 text-xs font-bold text-zinc-500 uppercase tracking-wider">Deadline</th>
@@ -258,6 +321,11 @@ const VendorPortal = () => {
                     <td className="px-6 py-4">
                       <span className="text-sm font-bold text-zinc-900">{order.poNumber}</span>
                     </td>
+                    {(isAdmin || isCS) && (
+                      <td className="px-6 py-4">
+                        <span className="text-sm text-zinc-600">ABC Printing</span>
+                      </td>
+                    )}
                     <td className="px-6 py-4">
                       <span className="text-sm text-zinc-600">{order.productName}</span>
                     </td>
@@ -271,28 +339,130 @@ const VendorPortal = () => {
                       )}>{order.deadline}</span>
                     </td>
                     <td className="px-6 py-4">
-                      <span className={cn(
-                        "px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider",
-                        order.status === 'Shipped' ? "bg-emerald-50 text-emerald-700" :
-                        order.status === 'Late' ? "bg-rose-50 text-rose-700" :
-                        order.status === 'Production' ? "bg-blue-50 text-blue-700" :
-                        "bg-amber-50 text-amber-700"
-                      )}>
-                        {order.status}
-                      </span>
+                      <div className="flex items-center space-x-2">
+                        <span className={cn(
+                          "px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider",
+                          order.status === 'Shipped' ? "bg-emerald-50 text-emerald-700" :
+                          order.status === 'Late' ? "bg-rose-50 text-rose-700" :
+                          order.status === 'Production' ? "bg-blue-50 text-blue-700" :
+                          "bg-amber-50 text-amber-700"
+                        )}>
+                          {order.status}
+                        </span>
+                        {isVendor && order.status === 'Production' && (
+                          <button className="text-[10px] font-bold text-brand hover:underline">Ship</button>
+                        )}
+                      </div>
                     </td>
                     <td className="px-6 py-4 text-right">
-                      <button 
-                        onClick={() => handleOrderClick(order)}
-                        className="p-2 text-zinc-400 hover:text-brand hover:bg-brand/5 rounded-lg transition-all"
-                      >
-                        <Eye className="w-4 h-4" />
-                      </button>
+                      <div className="flex items-center justify-end space-x-2">
+                        <button 
+                          onClick={() => handleOrderClick(order)}
+                          className="p-2 text-zinc-400 hover:text-brand hover:bg-brand/5 rounded-lg transition-all"
+                          title="View Details"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </button>
+                        {isAdmin && (
+                          <button className="p-2 text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 rounded-lg transition-all" title="Override Status">
+                            <Edit3 className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
+          </div>
+        </Card>
+      )}
+
+      {view === 'bulk' && isVendor && (
+        <Card title="Bulk CSV Upload" subtitle="Update multiple tracking numbers or statuses simultaneously">
+          <div className="space-y-8">
+            <div className="border-2 border-dashed border-zinc-200 rounded-2xl p-12 flex flex-col items-center justify-center bg-zinc-50 hover:border-brand/50 hover:bg-brand/5 transition-all cursor-pointer">
+              <UploadCloud className="w-12 h-12 text-zinc-300 mb-4" />
+              <h4 className="text-lg font-bold text-zinc-900">Upload your CSV file</h4>
+              <p className="text-sm text-zinc-500 mt-1 max-w-xs text-center">
+                Download our <span className="text-brand font-bold cursor-pointer hover:underline">CSV Template</span> to ensure correct formatting.
+              </p>
+              <button className="mt-6 px-6 py-2 bg-brand text-white font-semibold rounded-xl shadow-lg shadow-brand/20">
+                Select File
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div className="p-6 bg-white border border-zinc-200 rounded-xl">
+                <h5 className="text-sm font-bold text-zinc-900 mb-4 flex items-center">
+                  <Info className="w-4 h-4 mr-2 text-brand" />
+                  Validation Rules
+                </h5>
+                <ul className="space-y-2">
+                  {['PO Number must exist in Safco system', 'Tracking Number is required for "Shipped" status', 'Carrier must be FedEx, UPS, or USPS', 'Status must be a valid system state'].map((rule, i) => (
+                    <li key={i} className="flex items-start text-xs text-zinc-500">
+                      <div className="w-1.5 h-1.5 rounded-full bg-zinc-300 mt-1.5 mr-2 shrink-0" />
+                      {rule}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <div className="p-6 bg-white border border-zinc-200 rounded-xl">
+                <h5 className="text-sm font-bold text-zinc-900 mb-4 flex items-center">
+                  <History className="w-4 h-4 mr-2 text-brand" />
+                  Recent Uploads
+                </h5>
+                <div className="space-y-3">
+                  {[
+                    { name: 'tracking_batch_0317.csv', status: 'Success', count: 142 },
+                    { name: 'status_updates_mar.csv', status: 'Error', count: 12, errors: 2 },
+                  ].map((upload, i) => (
+                    <div key={i} className="flex items-center justify-between text-xs">
+                      <div>
+                        <p className="font-bold text-zinc-900">{upload.name}</p>
+                        <p className="text-zinc-500">{upload.count} records processed</p>
+                      </div>
+                      <span className={cn(
+                        "px-2 py-0.5 rounded-full font-bold uppercase tracking-widest text-[8px]",
+                        upload.status === 'Success' ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700"
+                      )}>
+                        {upload.status}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {view === 'logs' && isAdmin && (
+        <Card title="System Activity Logs" subtitle="Full audit trail of all order modifications across Magento, AS400, and Portal">
+          <div className="space-y-6">
+            {[
+              { time: '11:45 AM', user: 'Vendor (ABC Printing)', action: 'Status Update', po: 'PO-98231', detail: 'Changed to "Shipped"', tracking: '1Z999AA1012345678' },
+              { time: '10:20 AM', user: 'System (JARVIS)', action: 'API Validation', po: 'PO-98245', detail: 'Order validated via AS400' },
+              { time: '09:15 AM', user: 'Admin (Sarah Miller)', action: 'Status Override', po: 'PO-98112', detail: 'Forced status to "Production"' },
+              { time: '08:00 AM', user: 'System (Magento)', action: 'New Order', po: 'PO-98301', detail: 'Order synced to portal' },
+            ].map((log, i) => (
+              <div key={i} className="flex items-start space-x-4 p-4 bg-zinc-50 rounded-xl border border-zinc-100">
+                <div className="w-10 h-10 rounded-full bg-white border border-zinc-200 flex items-center justify-center shrink-0">
+                  <Clock className="w-5 h-5 text-zinc-400" />
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-bold text-zinc-900">{log.action} — {log.po}</p>
+                    <span className="text-[10px] text-zinc-400 font-medium">{log.time}</span>
+                  </div>
+                  <p className="text-sm text-zinc-600 mt-1">{log.detail}</p>
+                  <div className="flex items-center mt-2 space-x-4">
+                    <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">User: {log.user}</span>
+                    {log.tracking && <span className="text-[10px] font-bold text-brand uppercase tracking-widest">Tracking: {log.tracking}</span>}
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         </Card>
       )}
@@ -313,14 +483,22 @@ const VendorPortal = () => {
               </div>
             </div>
             <div className="flex space-x-3">
+              {isCS && (
+                <button className="flex items-center px-4 py-2 text-sm font-medium text-rose-600 bg-rose-50 border border-rose-100 rounded-lg hover:bg-rose-100">
+                  <AlertTriangle className="w-4 h-4 mr-2" />
+                  Escalate Delay
+                </button>
+              )}
               <button className="flex items-center px-4 py-2 text-sm font-medium text-zinc-600 bg-white border border-zinc-200 rounded-lg hover:bg-zinc-50">
                 <MessageSquare className="w-4 h-4 mr-2" />
-                Contact Safco
+                Contact {isVendor ? 'Safco' : 'Vendor'}
               </button>
-              <button className="flex items-center px-4 py-2 text-sm font-medium text-white bg-brand rounded-lg hover:bg-brand/90">
-                <Edit3 className="w-4 h-4 mr-2" />
-                Update Status
-              </button>
+              {(isVendor || isAdmin) && (
+                <button className="flex items-center px-4 py-2 text-sm font-medium text-white bg-brand rounded-lg hover:bg-brand/90">
+                  <Edit3 className="w-4 h-4 mr-2" />
+                  Update Status
+                </button>
+              )}
             </div>
           </div>
 
@@ -359,6 +537,32 @@ const VendorPortal = () => {
                   })}
                 </div>
               </Card>
+
+              {/* Tracking Input UI */}
+              {isVendor && selectedOrder.status === 'Production' && (
+                <Card title="Shipping Information" subtitle="Enter tracking details to complete this order">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-2">Carrier</label>
+                      <select className="w-full px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-lg text-sm">
+                        <option>FedEx</option>
+                        <option>UPS</option>
+                        <option>USPS</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-2">Tracking Number</label>
+                      <div className="relative">
+                        <input type="text" placeholder="e.g. 1Z999AA1012345678" className="w-full px-4 py-2 bg-zinc-50 border border-zinc-200 rounded-lg text-sm focus:ring-2 focus:ring-brand" />
+                        <button className="absolute right-2 top-1/2 -translate-y-1/2 px-3 py-1 bg-zinc-900 text-white text-[10px] font-bold rounded uppercase">Auto-Detect</button>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="mt-6 flex justify-end">
+                    <button className="px-6 py-2 bg-brand text-white font-bold rounded-xl shadow-lg shadow-brand/20">Save & Mark as Shipped</button>
+                  </div>
+                </Card>
+              )}
 
               {/* Specs */}
               <Card title="Product Specifications">
@@ -475,13 +679,29 @@ const LoginScreen = ({ onLogin }: { onLogin: (role: string) => void }) => (
         <p className="text-sm text-zinc-500 mt-2 text-center">Unified access to Safco Dental enterprise modules</p>
       </div>
 
-      <div className="space-y-4">
+      <div className="space-y-3">
         <button 
-          onClick={() => onLogin('Inventory Planner')}
+          onClick={() => onLogin('Admin')}
           className="w-full flex items-center justify-center px-6 py-3 bg-brand text-white font-semibold rounded-xl hover:bg-brand/90 transition-all shadow-sm"
         >
           <ShieldCheck className="w-5 h-5 mr-3" />
-          Sign in with Safco SSO
+          Sign in as Admin
+        </button>
+
+        <button 
+          onClick={() => onLogin('Inventory Planner')}
+          className="w-full flex items-center justify-center px-6 py-3 bg-white border border-zinc-200 text-zinc-700 font-semibold rounded-xl hover:bg-zinc-50 transition-all"
+        >
+          <User className="w-5 h-5 mr-3" />
+          Inventory Planner SSO
+        </button>
+
+        <button 
+          onClick={() => onLogin('Customer Support')}
+          className="w-full flex items-center justify-center px-6 py-3 bg-white border border-zinc-200 text-zinc-700 font-semibold rounded-xl hover:bg-zinc-50 transition-all"
+        >
+          <MessageSquare className="w-5 h-5 mr-3" />
+          Customer Support Login
         </button>
         
         <div className="relative py-4">
@@ -508,15 +728,15 @@ const LoginScreen = ({ onLogin }: { onLogin: (role: string) => void }) => (
 const ModuleLauncher = ({ userRole, onLaunch }: { userRole: string, onLaunch: (module: string) => void }) => {
   const modules = [
     { id: 'forecast', name: 'Forecast IQ', desc: 'AI-driven inventory predictions', icon: TrendingUp, allowed: ['Inventory Planner', 'Admin'] },
+    { id: 'vendor', name: 'Order Management', desc: 'Vendor & custom print orders', icon: Package, allowed: ['Vendor', 'Admin', 'Customer Support'] },
     { id: 'marketplace', name: 'Marketplace Tools', desc: 'Manage Magento listings', icon: Grid, allowed: ['Merchandising', 'Admin'] },
-    { id: 'vendor', name: 'Vendor Portal', desc: 'PO and lead time management', icon: Package, allowed: ['Vendor', 'Admin'] },
     { id: 'finance', name: 'Finance Dashboard', desc: 'AS400 reporting & audits', icon: ShieldCheck, allowed: ['Finance', 'Admin'] },
   ];
 
   return (
     <div className="max-w-6xl mx-auto py-12 px-6">
       <div className="mb-12">
-        <h2 className="text-3xl font-bold text-zinc-900">Welcome back, Sarah</h2>
+        <h2 className="text-3xl font-bold text-zinc-900">Welcome back, {userRole}</h2>
         <p className="text-zinc-500 mt-2">Select a module to begin your workday.</p>
       </div>
 
@@ -1297,10 +1517,10 @@ export default function App() {
     }
 
     if (currentModule === 'vendor') {
-      if (userRole !== 'Vendor' && userRole !== 'Admin') {
+      if (userRole !== 'Vendor' && userRole !== 'Admin' && userRole !== 'Customer Support') {
         return <AccessDenied onBack={() => setCurrentModule(null)} />;
       }
-      return <VendorPortal />;
+      return <VendorPortal userRole={userRole} />;
     }
     
     if (currentModule) {
